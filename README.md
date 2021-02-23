@@ -1,5 +1,7 @@
 # HA Sensor ePaper Display
-E-Paper display for viewing sensor data from Home Assistant. This firmware is based on **ESPhome**, so you need to install ESPhome and compile yaml file by yourself.
+E-Paper display for viewing sensor data from Home Assistant. This firmware is based on **ESPhome**, so you need to install ESPhome and compile .yaml file by yourself.
+
+![header](https://github.com/maxmacstn/HA-ePaper-Display/blob/main/images/IMG_5573.jpg?raw=true)
 
 ## Sensors data 
 The display shows PM2.5 value, temperature and humidity. Each set for indoor and outdoor.
@@ -7,6 +9,9 @@ The display shows PM2.5 value, temperature and humidity. Each set for indoor and
 I made PM2.5 the most prominent value. Because air pollution is currently a serious problem here in my hometime. Moreover, if the value exceeds the safety threshold, a warning sign will be displayed. 
 
 ## Hardware
+
+![hw](https://github.com/maxmacstn/HA-ePaper-Display/blob/main/images/3Dview.png?raw=true)
+
 ### Parts:
  1. Waveshare 4.2" ePaper display
  2. ESP8266 Wemos D1 Mini
