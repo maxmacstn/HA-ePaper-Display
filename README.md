@@ -10,7 +10,7 @@ I made PM2.5 the most prominent value. Because air pollution is currently a seri
 ### Parts:
  1. Waveshare 4.2" ePaper display
  2. ESP8266 Wemos D1 Mini
- 3. 3D-Printed Case
+ 3. 3D-Printed Case, it can be found on (my thingiverse page.)[https://www.thingiverse.com/thing:4772803]
  4. Stock M3 Screws from ePaper display
 
 Note: You might need to apply some adhesives to 3d-printed parts joints, and also put some counterweight on the base to make it harder to tip over. This is my very first time designing 3D things, so it’s not perfect yet.
