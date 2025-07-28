@@ -2,3 +2,7 @@
 3D-Print/
 
 .DS_Store
+
+epaper-display/
+
+.esphome/

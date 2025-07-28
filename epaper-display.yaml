@@ -1,12 +1,34 @@
+esp32:
+  board: seeed_xiao_esp32c3
+  variant: esp32c3
+  framework:
+    type: arduino
+
 esphome:
   name: epaper-display
-  platform: ESP8266
-  board: esp01_1m
   on_boot:
-    priority: -10
-    then:
-      - delay: 10s
-      - component.update: epaperdisplay
+    - priority: 800
+      then:
+        - delay: 5s
+        - light.turn_on:
+            id: led
+        - component.update: epaperdisplay
+    - priority: -10
+      then:
+        - delay: 20s
+        - globals.set:
+            id: is_sensor_ready
+            value: "true"
+        - light.turn_on:
+            id: led
+            effect:  "Air Quality Effect"
+        - delay: 10s
+        - component.update: epaperdisplay
+
+globals:
+   - id: is_sensor_ready
+     type: bool
+     initial_value: "false"
 
 wifi:
   ssid: "YOUR_SSID_HERE"
@@ -15,9 +37,10 @@ wifi:
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
     ssid: "Epaper-Display Fallback Hotspot"
-    password: "123456"
+    password: "12345678"
 
 captive_portal:
+
 
 # Enable logging
 logger:
@@ -26,8 +49,11 @@ logger:
 api:
 
 ota:
-  password: "123456"
+  - platform: esphome
+    password: "123456"
 
+web_server:
+  port: 80
 
 font:
 
@@ -66,6 +92,10 @@ font:
        'T', 'U', 'V', 'W', 'X', 'Y', 'Z', ' ', 'a', 'b', 'c', 'd', 'e', 'f',
        'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't',
        'u', 'v', 'w', 'x', 'y', 'z','å', 'ä', 'ö', '/','º','µ','³']
+
+  - file: 'fonts/Roboto-Medium.ttf'
+    id: location_title
+    size: 21
   
   - file: 'fonts/Roboto-Bold.ttf'
     id: main_sensor_font
@@ -94,8 +124,8 @@ font:
       '󰤟', # mdi-wifi-strength-1
       '󰤢', # mdi-wifi-strength-2
       '󰤥', # mdi-wifi-strength-3
-      '󰤨'  # mdi-wifi-strength-4
-
+      '󰤨',  # mdi-wifi-strength-4
+      '󰁹' #mdi-battery
       ]
 
   - file: 'fonts/materialdesignicons-webfont.ttf'
@@ -117,15 +147,15 @@ time:
 #Please edit your homeassistant sensors enitity id to match yours
 sensor:
   - platform: homeassistant
-    entity_id: sensor.xiaomi_airpurifier_air_quality_pm25 
+    entity_id: sensor.ikea_vindstyrka_dining_room_pm25
     id: pm25_indoor
 
   - platform: homeassistant
-    entity_id: sensor.xiaomi_airpurifier_temp
+    entity_id: sensor.ikea_vindstyrka_dining_room_temperature
     id: temp_indoor
   
   - platform: homeassistant
-    entity_id: sensor.xiaomi_airpurifier_humidity
+    entity_id: sensor.ikea_vindstyrka_dining_room_humidity
     id: humid_indoor
   
   - platform: homeassistant
@@ -135,11 +165,14 @@ sensor:
   - platform: homeassistant
     entity_id: sensor.humidity
     id: humid_outdoor
-  
-  
+
   - platform: homeassistant
     entity_id: sensor.pm2_5
     id: pm25_outdoor
+
+  - platform: homeassistant
+    entity_id: sensor.weather_station_battery_soc
+    id: sta_batt
 
   - platform: wifi_signal
     name: "WiFi Signal Sensor"
@@ -148,21 +181,68 @@ sensor:
     
 
 spi:
-  clk_pin: 14
-  mosi_pin: 13  #DIN
-  
+  clk_pin: GPIO8
+  mosi_pin: GPIO10  #DIN
+
+light:
+  - platform: neopixelbus
+    type: GRB
+    variant: WS2812
+    pin: GPIO20
+    num_leds: 6
+    name: "LED Light"
+    id: led
+    effects:
+      - lambda:
+            name: Air Quality Effect
+            update_interval: 5s
+            lambda: |-
+              auto call = id(led).turn_on();
+              call.set_transition_length(2000);
+              int outdoor_pm25 = int(id(pm25_outdoor).state);
+
+              if (outdoor_pm25 < 18){
+                call.set_brightness(0.2);
+                call.set_rgb(0.0, 1.0, 0.9);
+                call.perform();
+                return; 
+              }else if (outdoor_pm25 < 38){
+                call.set_brightness(0.2);
+                call.set_rgb(0.0, 1.0, 0.0);
+                call.perform();
+                return;
+              }else if (outdoor_pm25 < 50){
+                call.set_brightness(0.45);
+                call.set_rgb(1.0, 0.65, 0.0);
+                call.perform();
+                return;
+              }else{
+                call.set_brightness(0.7);
+                call.set_rgb(1.0, 0.0, 0.0);
+                call.perform();
+                return;
+              }
 display:
   - platform: waveshare_epaper
     id: epaperdisplay
-    cs_pin: 15
-    dc_pin: 12
+    cs_pin: GPIO3
+    dc_pin: GPIO4
     update_interval: 600s
-    busy_pin: 16
-    reset_pin: 4
+    # update_interval: 15s
+    busy_pin: GPIO2
+    reset_pin: GPIO21
     model: 4.20in
     lambda: |-
-      
-      int pm25_danger_thres = 40;
+
+      ESP_LOGI("E-Paper Lambda", "Update display");
+
+      if (!id(is_sensor_ready)){
+          it.printf(50, 100, id(main_sensor_font), "Booting..");
+          return;
+      } 
+
+
+      int pm25_danger_thres = 38;
     
       float outdoor_temp = id(temp_outdoor).state;
       int outdoor_humid = int(id(humid_outdoor).state);
@@ -174,8 +254,8 @@ display:
   
 
       /* OUTSIDE */
-      it.print(10, 10, id(main_sensor_unit), "OUTSIDE");
-      it.filled_rectangle(98, 21, 285, 3);
+      it.print(10, 10, id(location_title), "OUTSIDE");
+      it.filled_rectangle(105, 21, 285, 3);
       it.print(10, 114, id(main_sensor_unit), TextAlign::BASELINE_LEFT, "PM2.5");
       it.print(375, 75,  id(mdi_small), TextAlign::BASELINE_CENTER, "󰔏"); //thermometer
       it.print(375, 115, id(mdi_small), TextAlign::BASELINE_CENTER, "󰖎"); //water-percent
@@ -215,8 +295,8 @@ display:
       /* INSIDE */
 
       int offsetY = 137;
-      it.print(10, 10 + offsetY, id(main_sensor_unit), "INSIDE");
-      it.filled_rectangle(78, 21 + offsetY, 305, 3);
+      it.print(10, 10 + offsetY, id(location_title), "INSIDE");
+      it.filled_rectangle(85, 21 + offsetY, 305, 3);
       it.print(10, 114 + offsetY, id(main_sensor_unit), TextAlign::BASELINE_LEFT, "PM2.5");
       it.print(375, 75 + offsetY,  id(mdi_small), TextAlign::BASELINE_CENTER, "󰔏"); //thermometer
       it.print(375, 115 + offsetY, id(mdi_small), TextAlign::BASELINE_CENTER, "󰖎"); //water-percent
@@ -253,10 +333,11 @@ display:
         it.print(180, 114 + offsetY, id(main_sensor_unit),TextAlign::BASELINE_LEFT, "µg/m³");
       } 
 
-
       
-      /* FOOTERT */
-      it.strftime(355, 295 , id(footer_font), TextAlign::BASELINE_RIGHT , "Updated at %d/%b/%Y %H:%M", id(homeassistant_time).now());
+      /* FOOTER */
+      it.print(10, 298 , id(mdi_wifi), TextAlign::BASELINE_LEFT , "󰁹");
+      it.printf(30, 298 , id(footer_font), TextAlign::BASELINE_LEFT , "%3d%%",int(id(sta_batt).state));
+      it.strftime(355, 295 , id(footer_font), TextAlign::BASELINE_RIGHT , "%d/%b/%Y %H:%M", id(homeassistant_time).now());
       
       /* WiFi Signal Strenght */
       if(id(wifisignal).has_state()) {
